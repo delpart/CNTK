@@ -725,10 +725,21 @@ private:
     virtual TensorShape /*ConvolutionNode::*/ComputeOutputShape(const TensorShape& inputShape,
         const TensorShape& dilate, bool ceilOutDim, bool isFinalValidationPass)
     {
+        // Check if we are padding over channel axis.
+        // Normally in convolution, input channel of inputShape and kernelShape should have the same size, with padding turned off. 
+        const bool isPaddingChannelAxis = ConvolveGeometry::isPaddingOverChannelAxis(inputShape, m_autoPad, m_lowerPad, m_upperPad);
+        if (isPaddingChannelAxis)
+            std::call_once(m_padChannelWarningOnceFlag,
+                [this] { fprintf(stderr, "WARNING: %ls %ls operation: detected padding over channel axis. Is this intended?\n",
+                    NodeName().c_str(), OperationName().c_str()); });
+
         return ConvolveGeometry::ComputeOutputShape(inputShape, m_kernelShape, m_mapCount, m_stride,
             m_sharing, m_autoPad, m_lowerPad, m_upperPad, dilate, m_groups, ceilOutDim,
             Base::NeedsDynamicValidation(), isFinalValidationPass);
     }
+
+private:
+    std::once_flag m_padChannelWarningOnceFlag;
 };
 
 
