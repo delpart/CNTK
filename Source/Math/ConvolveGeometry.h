@@ -422,15 +422,28 @@ public:
         return (kernSize - 1) - (kernSize - 1) / 2 - (extra - center);
     }
 
+    // Return if padding is enabled for input channel axis. 
+    static bool isPaddingOverChannelAxis(const TensorShape& inputShape, const BoolVec& autoPad, const TensorShape& lowerPad, const TensorShape& upperPad)
+    {
+        size_t channelIdx = inputShape.GetRank() - 1;
+        assert(channelIdx >= 0);
+        bool autoPadCur = autoPad[autoPad.size() == 1 ? 0 : channelIdx];
+        size_t lo = lowerPad[lowerPad.size() == 1 ? 0 : channelIdx];
+        size_t hi = upperPad[upperPad.size() == 1 ? 0 : channelIdx];
+        return autoPadCur || (lo + hi > 0);
+    }
+
     // Computes output shape given input shape and other convolution parameters.
     static TensorShape ComputeOutputShape(const TensorShape& inputShape, const TensorShape& kernelShape, const TensorShape& mapCount, const TensorShape& stride,
                                           const BoolVec& sharing, const BoolVec& autoPad, const TensorShape& lowerPad, const TensorShape& upperPad,
                                           const TensorShape& dilation=TensorShape(1), const size_t groups=1, const bool ceilOutDim = false, const bool needsDynamicValidation = false,
                                           const bool isFinalValidationPass = false)
     {
-        // When detected padding for input channel axis.
+        // Ideally we would attach this warning to each individual node. However this method being static makes it hard to do so.
+        // Currently we track this in 2 places: here and ConvolutionNode. 
+        // Flag when detected padding for input channel axis.
         static std::once_flag m_padChannelWarningOnceFlag;
-        // When detected padding for input channel axis in group convolution. 
+        // Flag when detected padding for input channel axis in group convolution. 
         // In this case for now we override to not pad on channel axis to maintain same behavior. 
         static std::once_flag m_padChannelGroupsWarningOnceFlag;
 
